@@ -22,17 +22,6 @@ db = SQLAlchemy(app)
 
 
 # CONFIGURE TABLES
-class BlogPost(db.Model):
-    __tablename__ = "blog_posts"
-    id = db.Column(db.Integer, primary_key=True)
-    author = db.Column(db.String(250), nullable=False)
-    title = db.Column(db.String(250), unique=True, nullable=False)
-    subtitle = db.Column(db.String(250), nullable=False)
-    date = db.Column(db.String(250), nullable=False)
-    body = db.Column(db.Text, nullable=False)
-    img_url = db.Column(db.String(250), nullable=False)
-
-
 class User(UserMixin, db.Model):
     __tablename__ = "blog_users"
     id = db.Column(db.Integer, primary_key=True)
@@ -40,6 +29,19 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(100), unique=True, nullable=False)
     password = db.Column(db.String(100), nullable=False)
     img_url = db.Column(db.String(100), nullable=True)
+    posts = relationship("BlogPost", back_populates="author")
+
+
+class BlogPost(db.Model):
+    __tablename__ = "blog_posts"
+    id = db.Column(db.Integer, primary_key=True)
+    author_id = db.Column(db.Integer, db.ForeignKey("blog_users.id"))
+    author = relationship("User", back_populates="posts")
+    title = db.Column(db.String(250), unique=True, nullable=False)
+    subtitle = db.Column(db.String(250), nullable=False)
+    date = db.Column(db.String(250), nullable=False)
+    body = db.Column(db.Text, nullable=False)
+    img_url = db.Column(db.String(250), nullable=False)
 
 
 db.create_all()
@@ -48,7 +50,7 @@ db.create_all()
 def admin_only(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if not current_user.is_authenticated or current_user.id != 1:
+        if not current_user.is_authenticated and current_user.id != 1:
             return abort(403)
         return f(*args, **kwargs)
     return decorated_function
@@ -139,7 +141,7 @@ def contact():
     return render_template("contact.html")
 
 
-@app.route("/new-post")
+@app.route("/new-post", methods=["GET", "POST"])
 @admin_only
 def add_new_post():
     form = CreatePostForm()
@@ -160,7 +162,7 @@ def add_new_post():
     return render_template("make-post.html", form=form)
 
 
-@app.route("/edit-post/<int:post_id>")
+@app.route("/edit-post/<int:post_id>", methods=["GET", "POST"])
 @admin_only
 def edit_post(post_id):
     post = BlogPost.query.get(post_id)
@@ -169,7 +171,7 @@ def edit_post(post_id):
         title=post.title,
         subtitle=post.subtitle,
         img_url=post.img_url,
-        author=post.author,
+        # author=post.author,
         body=post.body
     )
 
@@ -177,7 +179,7 @@ def edit_post(post_id):
         post.title = edit_form.title.data
         post.subtitle = edit_form.subtitle.data
         post.img_url = edit_form.img_url.data
-        post.author = edit_form.author.data
+        # post.author = edit_form.author.data
         post.body = edit_form.body.data
         db.session.commit()
         return redirect(url_for("show_post", post_id=post.id))
@@ -185,7 +187,7 @@ def edit_post(post_id):
     return render_template("make-post.html", form=edit_form)
 
 
-@app.route("/delete/<int:post_id>")
+@app.route("/delete/<int:post_id>", methods=["GET", "POST"])
 @admin_only
 def delete_post(post_id):
     post_to_delete = BlogPost.query.get(post_id)
